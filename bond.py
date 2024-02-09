@@ -48,7 +48,6 @@ for k in range(2, len(aa_matrix)):
   i, j = 0, 1
   get_values = []
   while j < ca_matrix.shape[1]:
-    #print(i,k,j, len(ca_matrix))
     get_values.append(2 * dot_prod(ca_matrix[:, i], aa_matrix[:, k]) + 
                       2 * dot_prod(aa_matrix[:, k], ca_matrix[:, j]) - 
                       2 * dot_prod(ca_matrix[:, i], ca_matrix[:, j]))  
@@ -77,5 +76,79 @@ for i in column_indices:
 
 ca_matrix_adjusted = np.array(outArr)
 
-print("\nCA matrix (adjusted)")
+print("\nCA matrix (after row adjustment)")
 print(ca_matrix_adjusted)  
+
+# Paritioning Algorithm
+
+
+# Helper that examines query and determines if it uses TQ and BQ attributes.
+def check_use(query):
+
+  accessTQ = False
+  for i in att_TQ:
+   if query[i] == 1:
+    accessTQ = True
+    break
+
+  accessBQ = False
+  for i in att_BQ:
+   if query[i] == 1:
+    accessBQ = True
+    break
+    
+  return accessTQ, accessBQ
+
+# Checks all split points and determines the best one.
+best_i = 0
+best_z = float('-inf')
+
+for i in range(0, dim - 1):
+
+  # get attributes determined by split point along the diagonal.
+  att_TQ = column_indices[:i+1]
+  att_BQ = column_indices[min(i+1, dim-1):]
+
+  # Reference: Page 108 of the textbook mentioned in the readme.
+  query_TQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (True, False)]
+  query_BQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (False, True)]
+  query_OQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (True, True)]
+
+  val_CTQ = np.sum(query_access[query_TQ].flatten())
+  val_CBQ = np.sum(query_access[query_BQ].flatten())
+  val_COQ = np.sum(query_access[query_OQ].flatten())
+
+  z_value = val_CTQ * val_CBQ - val_COQ ** 2
+
+  print(f"\nPartition after {i+1},{i+1}: z-value is {z_value}")
+
+  if z_value > best_z:
+    best_z = z_value
+    best_i = i
+
+# We show the split. Featuring hacky print formatting! Normally I'd shove this all in a dataframe and print that but I don't want to force another dependency on you guys.
+print("\nThe optimal partitioning looks like this:\n")
+
+# convert array to string to be able to add breaks
+splitArr = ca_matrix_adjusted.astype(int)
+splitArr = splitArr.astype(str)
+
+# Add required spaces to make it look nice.
+column_spacing = []
+for i in range(0, dim):
+    column_spacing.append(np.max(np.array([len(x) for x in splitArr[:, i]])))
+
+for i in range(0, dim):
+  for j in range(0, dim):
+    splitArr[i, j] += " " * (column_spacing[i] - len(splitArr[i, j]))
+
+# insert breaks to show split
+splitArr = np.insert(splitArr, best_i + 1, "|", axis = 1)
+splitArr = np.insert(splitArr, best_i + 1, "-", axis = 0)
+
+# Add spaces to breaks
+for j in range(0, dim):
+  splitArr[best_i + 1, j] += " " * (column_spacing[best_i + 1] - len(splitArr[best_i + 1, j]))
+
+# print without brackets
+print('\n'.join(['\t'.join([str(cell) for cell in row]) for row in splitArr]))
