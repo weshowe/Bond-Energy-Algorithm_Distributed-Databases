@@ -86,7 +86,7 @@ print(ca_matrix_adjusted)
 # Paritioning Algorithm
 
 # Helper that examines query and determines if it uses TQ and BQ attributes.
-def check_use(query):
+def check_use(query, att_TQ, att_BQ):
 
   accessTQ = False
   for i in att_TQ:
@@ -123,9 +123,9 @@ while True:
    att_BQ = column_indices[min(i+1, dim-1):]
 
    # Reference: Page 108 of the textbook mentioned in the readme.
-   query_TQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (True, False)]
-   query_BQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (False, True)]
-   query_OQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (True, True)]
+   query_TQ = [i for i in range(0, dim) if check_use(query_attr[i], att_TQ, att_BQ) == (True, False)]
+   query_BQ = [i for i in range(0, dim) if check_use(query_attr[i], att_TQ, att_BQ) == (False, True)]
+   query_OQ = [i for i in range(0, dim) if check_use(query_attr[i], att_TQ, att_BQ) == (True, True)]
 
    val_CTQ = np.sum(query_access[query_TQ].flatten())
    val_CBQ = np.sum(query_access[query_BQ].flatten())
