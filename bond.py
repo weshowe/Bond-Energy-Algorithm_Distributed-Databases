@@ -1,4 +1,5 @@
 import numpy as np
+import copy
 
 query_attr = np.array([[1, 0, 1, 0], 
                        [0, 1, 1, 0], 
@@ -63,6 +64,7 @@ ca_matrix = np.delete(ca_matrix, ca_matrix.shape[1]-1, axis=1)
 print("\nCA matrix")
 print(ca_matrix)
 
+# Adjust rows. Since we didn't keep track of them, this requires some searching.
 column_indices = []
 outArr = []
 
@@ -70,6 +72,8 @@ for i in range(0, dim):
   for j in range(0, dim):
     if j not in column_indices and np.array_equal(ca_matrix[:, i], aa_matrix[:, j]):
       column_indices.append(j)
+
+column_indices = np.array(column_indices)
 
 for i in column_indices:
   outArr.append(ca_matrix[i, :])
@@ -80,7 +84,6 @@ print("\nCA matrix (after row adjustment)")
 print(ca_matrix_adjusted)  
 
 # Paritioning Algorithm
-
 
 # Helper that examines query and determines if it uses TQ and BQ attributes.
 def check_use(query):
@@ -100,34 +103,63 @@ def check_use(query):
   return accessTQ, accessBQ
 
 # Checks all split points and determines the best one.
+
+# keep track of best z-score and the corresponding shift counter value and location on the diagonal.
 best_i = 0
 best_z = float('-inf')
+best_shift = 0
 
-for i in range(0, dim - 1):
+# Count shifts and retain original attribute position to know when we've exhausted shifts.
+column_indices_orig = copy.deepcopy(column_indices)
+shift_counter = 0
 
-  # get attributes determined by split point along the diagonal.
-  att_TQ = column_indices[:i+1]
-  att_BQ = column_indices[min(i+1, dim-1):]
+# Run and keep shifting until we return to our start point.
+print("\nStarting partition algorithm.")
+while True:
+ for i in range(0, dim - 1):
 
-  # Reference: Page 108 of the textbook mentioned in the readme.
-  query_TQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (True, False)]
-  query_BQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (False, True)]
-  query_OQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (True, True)]
+   # get attributes determined by split point along the diagonal.
+   att_TQ = column_indices[:i+1]
+   att_BQ = column_indices[min(i+1, dim-1):]
 
-  val_CTQ = np.sum(query_access[query_TQ].flatten())
-  val_CBQ = np.sum(query_access[query_BQ].flatten())
-  val_COQ = np.sum(query_access[query_OQ].flatten())
+   # Reference: Page 108 of the textbook mentioned in the readme.
+   query_TQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (True, False)]
+   query_BQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (False, True)]
+   query_OQ = [i for i in range(0, dim) if check_use(query_attr[i]) == (True, True)]
 
-  z_value = val_CTQ * val_CBQ - val_COQ ** 2
+   val_CTQ = np.sum(query_access[query_TQ].flatten())
+   val_CBQ = np.sum(query_access[query_BQ].flatten())
+   val_COQ = np.sum(query_access[query_OQ].flatten())
 
-  print(f"\nPartition after {i+1},{i+1}: z-value is {z_value}")
+   z_value = val_CTQ * val_CBQ - val_COQ ** 2
 
-  if z_value > best_z:
-    best_z = z_value
-    best_i = i
+   print(f"\nPartition after {i+1},{i+1}: z-value is {z_value}")
+
+   if z_value > best_z:
+     best_z = z_value
+     best_i = i
+     best_shift = shift_counter
+   
+ # Perform the shift. This should correspond to moving the rows/columns around as the textbook describes. 
+ column_indices = np.roll(column_indices, -1)
+   
+ # Exit the loop if we've exhausted our shifts.
+ if np.array_equal(column_indices, column_indices_orig):
+  print("\nStopping algorithm because we've exhausted our shifts.")
+  break
+   
+ shift_counter += 1
+ print(f"\nPerformed shift. Number of shifts performed so far: {shift_counter}")
+
+print(f"\nThe optimal split requires {best_shift} shifts and occurs along the diagonal after {best_i + 1},{best_i + 1}.")
 
 # We show the split. Featuring hacky print formatting! Normally I'd shove this all in a dataframe and print that but I don't want to force another dependency on you guys.
 print("\nThe optimal partitioning looks like this:\n")
+
+# We adjust the CA matrix by the best number of shifts.
+for i in range(0, best_shift):
+  ca_matrix_adjusted = np.roll(ca_matrix_adjusted, -1, axis = 1)
+  ca_matrix_adjusted = np.roll(ca_matrix_adjusted, -1, axis = 0)
 
 # convert array to string to be able to add breaks
 splitArr = ca_matrix_adjusted.astype(int)
@@ -150,5 +182,5 @@ splitArr = np.insert(splitArr, best_i + 1, "-", axis = 0)
 for j in range(0, dim):
   splitArr[best_i + 1, j] += " " * (column_spacing[best_i + 1] - len(splitArr[best_i + 1, j]))
 
-# print without brackets
+# print without brackets or apostrophes.
 print('\n'.join(['\t'.join([str(cell) for cell in row]) for row in splitArr]))
